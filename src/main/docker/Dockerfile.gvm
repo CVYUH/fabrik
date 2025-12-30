@@ -1,0 +1,17 @@
+FROM ghcr.io/graalvm/jdk-community:21
+
+RUN mkdir /deployments
+RUN chown 1001 /deployments
+RUN chmod "g+rwX" /deployments
+RUN chown 1001:root /deployments
+
+RUN echo "securerandom.source=file:/dev/urandom" >> $JAVA_HOME/conf/security/java.security
+
+COPY target/*-runner.jar /deployments/app.jar
+
+ENV JAVA_OPTIONS="-Dquarkus.http.host=0.0.0.0"
+
+EXPOSE 8080
+USER 1001
+
+ENTRYPOINT ["java", "-jar", "/deployments/app.jar"]

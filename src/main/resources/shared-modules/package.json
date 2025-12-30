@@ -1,0 +1,19 @@
+{
+  "name": "shared-modules",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "cronstrue": "^3.9.0",
+    "lodash": "^4.17.21"
+  },
+  "scripts": {
+    "build": "rollup -c",
+    "clean": "rm -rf dist/*"
+  },
+  "devDependencies": {
+    "@rollup/plugin-terser": "^0.4.4",
+    "glob": "^13.0.0",
+    "rollup": "^4.54.0",
+    "terser": "^5.44.1"
+  }
+}

@@ -1,0 +1,21 @@
+FROM amazoncorretto:21
+
+RUN mkdir /deployments
+RUN chown 1001 /deployments
+RUN chmod "g+rwX" /deployments
+RUN chown 1001:root /deployments
+RUN mkdir /ldifs
+RUN chown 1001 /ldifs
+RUN chmod "g+rwX" /ldifs
+RUN chown 1001:root /ldifs
+RUN echo "securerandom.source=file:/dev/urandom" >> /usr/lib/jvm/java-21-amazon-corretto/conf/security/java.security
+
+COPY target/*-runner.jar /deployments/app.jar
+
+ENV JAVA_OPTIONS="-Dquarkus.http.host=0.0.0.0"
+
+
+EXPOSE 8080
+USER 1001
+
+ENTRYPOINT ["java","-jar","/deployments/app.jar"]
