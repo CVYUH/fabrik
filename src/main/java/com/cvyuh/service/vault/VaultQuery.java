@@ -1,4 +1,4 @@
-package com.cvyuh.resources.vault;
+package com.cvyuh.service.vault;
 
 import jakarta.ws.rs.QueryParam;
 

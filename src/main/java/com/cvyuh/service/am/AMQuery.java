@@ -1,4 +1,4 @@
-package com.cvyuh.resources.am;
+package com.cvyuh.service.am;
 
 import jakarta.ws.rs.QueryParam;
 

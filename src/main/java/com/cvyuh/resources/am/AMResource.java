@@ -2,6 +2,9 @@ package com.cvyuh.resources.am;
 
 import com.cvyuh.resources.Constants;
 import com.cvyuh.resources.CvyuhToken;
+import com.cvyuh.service.am.AMHeader;
+import com.cvyuh.service.am.AMQuery;
+import com.cvyuh.service.am.AMService;
 import com.cvyuh.utils.core.ResponseHandler;
 import com.cvyuh.utils.log.LoggingContext;
 import io.vertx.core.json.JsonObject;
@@ -39,7 +42,7 @@ public class AMResource implements ResponseHandler {
         amheader.setAuthorization(authorization);
         amheader.setCookie(cookie);
         String subPath = uriInfo.getPath().substring(Constants.CONTEXT.AM.length());
-        return "/openam" + subPath;
+        return "json" + subPath;
     }
 
     @GET

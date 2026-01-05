@@ -1,4 +1,4 @@
-package com.cvyuh.resources.vault;
+package com.cvyuh.service.am;
 
 import com.cvyuh.utils.exception.ExceptionWrapper;
 import com.cvyuh.utils.log.LoggingFilter;
@@ -11,21 +11,21 @@ import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 @RegisterProvider(LoggingFilter.class)
 @RegisterProvider(ExceptionWrapper.class)
 @RegisterRestClient
-public interface VaultService {
+public interface AMService {
     @GET
     @Path("{path: .+}")
     Response doGet(
             @PathParam("path") @Encoded String path,
-            @BeanParam VaultHeader header,
-            @BeanParam VaultQuery query
+            @BeanParam AMHeader header,
+            @BeanParam AMQuery query
     );
 
     @POST
     @Path("{path: .+}")
     Response doPost(
             @PathParam("path") @Encoded String path,
-            @BeanParam VaultHeader header,
-            @BeanParam VaultQuery query,
+            @BeanParam AMHeader header,
+            @BeanParam AMQuery query,
             String jsonBody
     );
 
@@ -33,7 +33,7 @@ public interface VaultService {
     @Path("{path: .+}")
     Response doPut(
             @PathParam("path") @Encoded String path,
-            @BeanParam VaultHeader header,
+            @BeanParam AMHeader header,
             String jsonBody
     );
 
@@ -41,7 +41,7 @@ public interface VaultService {
     @Path("{path: .+}")
     Response doPatch(
             @PathParam("path") @Encoded String path,
-            @BeanParam VaultHeader header,
+            @BeanParam AMHeader header,
             String jsonBody
     );
 
@@ -49,6 +49,6 @@ public interface VaultService {
     @Path("{path: .+}")
     Response doDelete(
             @PathParam("path") @Encoded String path,
-            @BeanParam VaultHeader header
+            @BeanParam AMHeader header
     );
 }
