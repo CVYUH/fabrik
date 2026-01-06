@@ -1,11 +1,11 @@
 # View all log levels
-$ kubectl -n panorama exec -it deploy/panorama-provision -c provision -- curl -X GET "http://localhost:8080/api/logging/levels"
+$ kubectl -n panorama exec -it deploy/panorama-fabrik -c fabrik -- curl -X GET "http://localhost:8080/api/logging/levels"
 
 # Filter to specific package
-$ kubectl -n panorama exec -it deploy/panorama-provision -c provision -- curl -X GET "http://localhost:8080/api/logging/levels/com.cvyuh"
+$ kubectl -n panorama exec -it deploy/panorama-fabrik -c fabrik -- curl -X GET "http://localhost:8080/api/logging/levels/com.cvyuh"
   {"jbossLevel":"ERROR","configuredLevel":"INHERITED","effectiveLevel":"ERROR","logger":"com.cvyuh"}%
 
-$ kubectl -n panorama exec -it deploy/panorama-provision -c provision -- curl -X GET "http://localhost:8080/api/logging/levels/com.cvyuh/full"
+$ kubectl -n panorama exec -it deploy/panorama-fabrik -c fabrik -- curl -X GET "http://localhost:8080/api/logging/levels/com.cvyuh/full"
   [
     {"jbossLevel":"ERROR","configuredLevel":"INHERITED","effectiveLevel":"ERROR","logger":"com.cvyuh"},
     {"jbossLevel":"ERROR","configuredLevel":"INHERITED","effectiveLevel":"ERROR","logger":"com"},
@@ -16,7 +16,7 @@ $ kubectl -n panorama exec -it deploy/panorama-provision -c provision -- curl -X
 Changing Log Levels at Runtime
 -------------------------------
 # Set package level
-$ kubectl -n panorama exec -it deploy/panorama-provision -c provision -- curl -X PUT "http://localhost:8080/api/logging/levels/com.cvyuh/set/INFO"
+$ kubectl -n panorama exec -it deploy/panorama-fabrik -c fabrik -- curl -X PUT "http://localhost:8080/api/logging/levels/com.cvyuh/set/INFO"
   {"level":"INFO","logger":"com.cvyuh"}%
 
 # Set specific class level

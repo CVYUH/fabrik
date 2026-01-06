@@ -5,63 +5,113 @@ import jakarta.ws.rs.HeaderParam;
 public class AMHeader {
     @HeaderParam("X-OpenAM-Username") String username;
     @HeaderParam("X-OpenAM-Password") String password;
-    @HeaderParam("Accept-API-Version") String acceptApiVersion;
-    @HeaderParam("Cookie") String cookie;
-    @HeaderParam("Authorization") String authorization;
 
-    public String getUsername () {
+    //@HeaderParam("cookie") String cookie;
+    @HeaderParam("authorization") String authorization;
+
+    @HeaderParam("Host") String host;
+    @HeaderParam("Referer") String referer;
+    @HeaderParam("Accept-API-Version") String acceptAPIVersion;
+    @HeaderParam("X-Forwarded-For") String xForwardedFor;
+    @HeaderParam("X-Forwarded-Proto") String xForwardedProto;
+    @HeaderParam("User-Agent") String userAgent;
+
+    @HeaderParam("X-Request-Id") String xRequestId;
+    @HeaderParam("X-Correlation-Id") String xCorrelationId;
+
+    public String getUsername() {
         return username;
     }
 
-    public void setUsername ( String username ) {
+    public void setUsername(String username) {
         this.username = username;
     }
 
-    public String getPassword () {
+    public String getPassword() {
         return password;
     }
 
-    public void setPassword ( String password ) {
+    public void setPassword(String password) {
         this.password = password;
     }
 
-    public String getAcceptApiVersion () {
-        return acceptApiVersion;
-    }
-
-    public void setAcceptApiVersion ( String acceptApiVersion ) {
-        this.acceptApiVersion = acceptApiVersion;
-    }
-
-    public String getCookie () {
+    /*public String getCookie() {
         return cookie;
     }
 
-    public void setCookie ( String cookie ) {
+    public void setCookie(String cookie) {
         this.cookie = cookie;
-    }
+    }*/
 
-    public String getAuthorization () {
+    public String getAuthorization() {
         return authorization;
     }
 
-    public void setAuthorization ( String authorization ) {
+    public void setAuthorization(String authorization) {
         this.authorization = authorization;
     }
 
-    public AMHeader merge(AMHeader other) {
-        if (other == null) {
-            return this;
-        }
-
-        AMHeader merged = new AMHeader();
-        merged.setAuthorization(other.authorization != null ? other.authorization : this.authorization);
-        merged.setCookie(other.cookie != null ? other.cookie : this.cookie);
-        merged.setAcceptApiVersion(other.acceptApiVersion != null ? other.acceptApiVersion : this.acceptApiVersion);
-        merged.setUsername(other.username != null ? other.username : this.username);
-        merged.setPassword(other.password != null ? other.password : this.password);
-
-        return merged;
+    public String getHost() {
+        return host;
     }
 
+    public void setHost(String host) {
+        this.host = host;
+    }
+
+    public String getReferer() {
+        return referer;
+    }
+
+    public void setReferer(String referer) {
+        this.referer = referer;
+    }
+
+    public String getAcceptAPIVersion() {
+        return acceptAPIVersion;
+    }
+
+    public void setAcceptAPIVersion(String acceptAPIVersion) {
+        this.acceptAPIVersion = acceptAPIVersion;
+    }
+
+    public String getXForwardedFor() {
+        return xForwardedFor;
+    }
+
+    public void setXForwardedFor(String xForwardedFor) {
+        this.xForwardedFor = xForwardedFor;
+    }
+
+    public String getXForwardedProto() {
+        return xForwardedProto;
+    }
+
+    public void setXForwardedProto(String xForwardedProto) {
+        this.xForwardedProto = xForwardedProto;
+    }
+
+    public String getUserAgent() {
+        return userAgent;
+    }
+
+    public void setUserAgent(String userAgent) {
+        this.userAgent = userAgent;
+    }
+
+    public String getXRequestId() {
+        return xRequestId;
+    }
+
+    public void setXRequestId(String xRequestId) {
+        this.xRequestId = xRequestId;
+    }
+
+    public String getXCorrelationId() {
+        return xCorrelationId;
+    }
+
+    public void setXCorrelationId(String xCorrelationId) {
+        this.xCorrelationId = xCorrelationId;
+    }
 }

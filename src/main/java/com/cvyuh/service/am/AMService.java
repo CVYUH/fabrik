@@ -17,6 +17,7 @@ public interface AMService {
     Response doGet(
             @PathParam("path") @Encoded String path,
             @BeanParam AMHeader header,
+            @BeanParam AMCookie cookie,
             @BeanParam AMQuery query
     );
 
@@ -25,6 +26,7 @@ public interface AMService {
     Response doPost(
             @PathParam("path") @Encoded String path,
             @BeanParam AMHeader header,
+            @BeanParam AMCookie cookie,
             @BeanParam AMQuery query,
             String jsonBody
     );
@@ -34,6 +36,7 @@ public interface AMService {
     Response doPut(
             @PathParam("path") @Encoded String path,
             @BeanParam AMHeader header,
+            @BeanParam AMCookie cookie,
             String jsonBody
     );
 
@@ -42,6 +45,7 @@ public interface AMService {
     Response doPatch(
             @PathParam("path") @Encoded String path,
             @BeanParam AMHeader header,
+            @BeanParam AMCookie cookie,
             String jsonBody
     );
 
@@ -49,6 +53,7 @@ public interface AMService {
     @Path("{path: .+}")
     Response doDelete(
             @PathParam("path") @Encoded String path,
-            @BeanParam AMHeader header
+            @BeanParam AMHeader header,
+            @BeanParam AMCookie cookie
     );
 }

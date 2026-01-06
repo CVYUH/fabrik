@@ -1,7 +1,7 @@
 package com.cvyuh.resources.am;
 
 import com.cvyuh.resources.Constants;
-import com.cvyuh.resources.CvyuhToken;
+import com.cvyuh.service.am.AMCookie;
 import com.cvyuh.service.am.AMHeader;
 import com.cvyuh.service.am.AMQuery;
 import com.cvyuh.service.am.AMService;
@@ -27,20 +27,16 @@ public class AMResource implements ResponseHandler {
     @RestClient
     AMService amService;
 
-    private String preProcess(UriInfo uriInfo, AMHeader amheader, String cvyuhToken) {
+    private String preProcess(UriInfo uriInfo, AMHeader amheader, AMCookie amCookie) {
         MDC.put(LoggingContext.SERVICE, AMService.class.getName());
 
-        // Ensure header is not null
-        /*if (amheader == null) {
-            amheader = new AMHeader();
-        }*/
-
         // Set authentication headers
-        cvyuhToken = ((cvyuhToken != null) && (cvyuhToken.length() > 0)) ? cvyuhToken : "";
-        String authorization = "Bearer " + cvyuhToken;
-        String cookie = Constants.TOKEN.AM + "=" + cvyuhToken;
+        String amToken = amCookie.getAm();
+        amToken = ((amToken != null) && (amToken.length() > 0)) ? amToken : "";
+        String authorization = "Bearer " + amToken;
         amheader.setAuthorization(authorization);
-        amheader.setCookie(cookie);
+        //String cookie = Constants.COOKIE.AM + "=" + amToken;
+        //amheader.setCookie(cookie);
         String subPath = uriInfo.getPath().substring(Constants.CONTEXT.AM.length());
         return "json" + subPath;
     }
@@ -51,10 +47,10 @@ public class AMResource implements ResponseHandler {
             @Context UriInfo uriInfo,
             @BeanParam AMHeader header,
             @BeanParam AMQuery query,
-            @BeanParam CvyuhToken cvyuhToken
+            @BeanParam AMCookie amCookie
     ) {
-        String path = preProcess(uriInfo, header, cvyuhToken.getCvyuhToken());
-        return handleResponse(v -> amService.doGet(path, header, query), path);
+        String path = preProcess(uriInfo, header, amCookie);
+        return handleResponse(v -> amService.doGet(path, header, amCookie, query), path);
     }
 
     @POST
@@ -64,12 +60,12 @@ public class AMResource implements ResponseHandler {
             @Context UriInfo uriInfo,
             @BeanParam AMHeader header,
             @BeanParam AMQuery query,
-            @BeanParam CvyuhToken cvyuhToken,
+            @BeanParam AMCookie amCookie,
             String jsonBody
     ) {
-        String path = preProcess(uriInfo, header, cvyuhToken.getCvyuhToken());
+        String path = preProcess(uriInfo, header, amCookie);
         JsonObject jsonData = jsonBody != null && !jsonBody.trim().isEmpty() ? new JsonObject(jsonBody) : new JsonObject();
-        return handleResponse(v -> amService.doPost(path, header, query, jsonData.encode()), path);
+        return handleResponse(v -> amService.doPost(path, header, amCookie, query, jsonData.encode()), path);
     }
 
     @PUT
@@ -78,12 +74,12 @@ public class AMResource implements ResponseHandler {
     public Response doPut(
             @Context UriInfo uriInfo,
             @BeanParam AMHeader header,
-            @BeanParam CvyuhToken cvyuhToken,
+            @BeanParam AMCookie amCookie,
             String jsonBody
     ) {
-        String path = preProcess(uriInfo, header, cvyuhToken.getCvyuhToken());
+        String path = preProcess(uriInfo, header, amCookie);
         JsonObject jsonData = jsonBody != null && !jsonBody.trim().isEmpty() ? new JsonObject(jsonBody) : new JsonObject();
-        return handleResponse(v -> amService.doPut(path, header, jsonData.encode()), path);
+        return handleResponse(v -> amService.doPut(path, header, amCookie, jsonData.encode()), path);
     }
 
     @PATCH
@@ -92,12 +88,12 @@ public class AMResource implements ResponseHandler {
     public Response doPatch(
             @Context UriInfo uriInfo,
             @BeanParam AMHeader header,
-            @BeanParam CvyuhToken cvyuhToken,
+            @BeanParam AMCookie amCookie,
             String jsonBody
     ) {
-        String path = preProcess(uriInfo, header, cvyuhToken.getCvyuhToken());
+        String path = preProcess(uriInfo, header, amCookie);
         JsonObject jsonData = jsonBody != null && !jsonBody.trim().isEmpty() ? new JsonObject(jsonBody) : new JsonObject();
-        return handleResponse(v -> amService.doPatch(path, header, jsonData.encode()), path);
+        return handleResponse(v -> amService.doPatch(path, header, amCookie, jsonData.encode()), path);
     }
 
     @DELETE
@@ -105,9 +101,9 @@ public class AMResource implements ResponseHandler {
     public Response doDelete(
             @Context UriInfo uriInfo,
             @BeanParam AMHeader amHeader,
-            @BeanParam CvyuhToken cvyuhToken
+            @BeanParam AMCookie amCookie
     ) {
-        String path = preProcess(uriInfo, amHeader, cvyuhToken.getCvyuhToken());
-        return handleResponse(v -> amService.doDelete(path, amHeader), path);
+        String path = preProcess(uriInfo, amHeader, amCookie);
+        return handleResponse(v -> amService.doDelete(path, amHeader, amCookie), path);
     }
 }
