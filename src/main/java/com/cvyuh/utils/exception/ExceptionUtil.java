@@ -32,12 +32,16 @@ public class ExceptionUtil {
         }else if (e instanceof InternalServerErrorException) {
             Log.error("path: " + path +": Not Acceptable ", e);
             return buildError(Response.Status.INTERNAL_SERVER_ERROR.getStatusCode(), e.getClass().getSimpleName(), e.getMessage(), path);
-        } else if (e instanceof WebApplicationException wae) {
-            Response original = wae.getResponse();
+        } else if (e instanceof WebApplicationException) {
+            Response res = ((WebApplicationException) e).getResponse();
+            Log.error("Error invoking service: " + res.getStatus() + " - " + e.getMessage());
+            Log.error(path + ": WebApplicationException Exception ", e);
+            return res;
+            /*Response original = wae.getResponse();
             int status = original != null ? original.getStatus() : Response.Status.INTERNAL_SERVER_ERROR.getStatusCode();
             String message = original != null ? ResponseHandler.readEntity(original) : e.getMessage();
             Log.error("path: " + path +": WebApplicationException " + status + " - " + message, e);
-            return buildError(status, e.getClass().getSimpleName(), message, path);
+            return buildError(status, e.getClass().getSimpleName(), message, path);*/
         } else {
             Log.error("Unhandled Exception: " + path, e);
             return Response.serverError().build();
