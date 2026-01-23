@@ -6,7 +6,7 @@ public class AMHeader {
     @HeaderParam("X-OpenAM-Username") String username;
     @HeaderParam("X-OpenAM-Password") String password;
 
-    //@HeaderParam("cookie") String cookie;
+    @HeaderParam("cookie") String cookie;
     @HeaderParam("authorization") String authorization;
 
     @HeaderParam("Host") String host;
@@ -35,13 +35,13 @@ public class AMHeader {
         this.password = password;
     }
 
-    /*public String getCookie() {
+    public String getCookie() {
         return cookie;
     }
 
     public void setCookie(String cookie) {
         this.cookie = cookie;
-    }*/
+    }
 
     public String getAuthorization() {
         return authorization;
