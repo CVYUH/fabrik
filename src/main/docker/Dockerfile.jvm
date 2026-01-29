@@ -1,21 +1,23 @@
 FROM eclipse-temurin:21-jre-jammy
 
-RUN mkdir /deployments
-RUN chown 1001 /deployments
-RUN chmod "g+rwX" /deployments
-RUN chown 1001:root /deployments
-RUN mkdir /ldifs
-RUN chown 1001 /ldifs
-RUN chmod "g+rwX" /ldifs
-RUN chown 1001:root /ldifs
-RUN echo "securerandom.source=file:/dev/urandom" >> /usr/lib/jvm/java-21-amazon-corretto/conf/security/java.security
+# Create required directories with correct permissions
+RUN mkdir /deployments /ldifs \
+ && chown 1001:root /deployments /ldifs \
+ && chmod g+rwX /deployments /ldifs
 
+# Fix for low-entropy startup
+RUN echo "securerandom.source=file:/dev/urandom" >> \
+    /usr/lib/jvm/java-21-openjdk-amd64/conf/security/java.security
+
+# Copy application
 COPY target/*-runner.jar /deployments/app.jar
 
+# Quarkus runtime config
 ENV JAVA_OPTIONS="-Dquarkus.http.host=0.0.0.0"
 
-
 EXPOSE 8080
+
+# Run as non-root
 USER 1001
 
 ENTRYPOINT ["java","-jar","/deployments/app.jar"]
