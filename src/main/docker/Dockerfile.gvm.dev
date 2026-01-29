@@ -1,7 +1,10 @@
 FROM ghcr.io/graalvm/jdk-community:21
 
-RUN microdnf update -y && \
-    microdnf install -y curl tar gzip ca-certificates && \
-    update-ca-trust
+RUN microdnf install -y \
+      curl \
+      tar \
+      gzip \
+      ca-certificates \
+ && microdnf clean all
 
 WORKDIR /code
