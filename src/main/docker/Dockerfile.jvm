@@ -1,4 +1,4 @@
-FROM amazoncorretto:21
+FROM eclipse-temurin:21-jre-jammy
 
 RUN mkdir /deployments
 RUN chown 1001 /deployments

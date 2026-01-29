@@ -1,4 +1,4 @@
-FROM maven:3.9.8-amazoncorretto-21
+FROM eclipse-temurin:21-jre-jammy
 RUN yum update -y && yum install -y curl
 WORKDIR /code
 
