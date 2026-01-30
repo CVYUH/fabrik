@@ -9,6 +9,15 @@ RUN mkdir /deployments /ldifs \
 RUN echo "securerandom.source=file:/dev/urandom" >> \
     /usr/lib/jvm/java-21-openjdk-amd64/conf/security/java.security
 
+# In Temurin Jammy, the JVM path is usually one of:
+    # /usr/lib/jvm/temurin-21-jre-amd64/...
+    # /opt/java/openjdk/...
+# Temurin ≠ Ubuntu OpenJDK packaging.
+# RUN echo "securerandom.source=file:/dev/urandom" >> \
+#   $(dirname $(readlink -f $(which java)))/../conf/security/java.security
+# OR
+# ENV JAVA_OPTIONS="$JAVA_OPTIONS -Djava.security.egd=file:/dev/urandom"
+
 # Copy application
 COPY target/*-runner.jar /deployments/app.jar
 
