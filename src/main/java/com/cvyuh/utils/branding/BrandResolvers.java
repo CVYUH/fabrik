@@ -1,4 +1,4 @@
-package com.cvyuh.utils.core.branding;
+package com.cvyuh.utils.branding;
 
 public final class BrandResolvers {
     private static final BrandResolver DEFAULT = new DefaultBrandResolver();

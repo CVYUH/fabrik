@@ -1,7 +1,6 @@
-package com.cvyuh.utils.core.response;
+package com.cvyuh.utils.response;
 
-import com.cvyuh.utils.core.HttpMethod;
-import com.cvyuh.utils.core.branding.BrandResolvers;
+import com.cvyuh.utils.branding.BrandResolvers;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.MultivaluedMap;

@@ -1,4 +1,4 @@
-package com.cvyuh.utils.core;
+package com.cvyuh.utils.response;
 
 public enum HttpMethod {
 

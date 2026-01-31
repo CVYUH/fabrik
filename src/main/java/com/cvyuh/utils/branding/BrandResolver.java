@@ -1,4 +1,4 @@
-package com.cvyuh.utils.core.branding;
+package com.cvyuh.utils.branding;
 
 import java.util.Map;
 

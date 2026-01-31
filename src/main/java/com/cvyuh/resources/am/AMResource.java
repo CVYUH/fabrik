@@ -4,8 +4,8 @@ import com.cvyuh.resources.Constants;
 import com.cvyuh.service.am.AMHeader;
 import com.cvyuh.service.am.AMQuery;
 import com.cvyuh.service.am.AMService;
-import com.cvyuh.utils.core.HttpMethod;
-import com.cvyuh.utils.core.response.ResponseHandler;
+import com.cvyuh.utils.response.HttpMethod;
+import com.cvyuh.utils.response.ResponseHandler;
 import com.cvyuh.utils.log.LoggingContext;
 import io.vertx.core.json.JsonObject;
 import jakarta.inject.Inject;
@@ -18,7 +18,7 @@ import org.jboss.logging.MDC;
 @Path(Constants.CONTEXT.AM)
 public class AMResource implements ResponseHandler {
 
-    private static final Logger logger = org.jboss.logging.Logger.getLogger(AMResource.class);
+    private static final Logger logger = Logger.getLogger(AMResource.class);
 
     @Inject
     @RestClient

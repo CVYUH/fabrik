@@ -1,6 +1,6 @@
 package com.cvyuh.utils.exception;
 
-import com.cvyuh.utils.core.response.ResponseHandler;
+import com.cvyuh.utils.response.ResponseHandler;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.rest.client.ext.ResponseExceptionMapper;

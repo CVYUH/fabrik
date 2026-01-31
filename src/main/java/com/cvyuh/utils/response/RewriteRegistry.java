@@ -1,7 +1,7 @@
-package com.cvyuh.utils.core.response;
+package com.cvyuh.utils.response;
 
-import com.cvyuh.utils.core.HttpMethod;
-import com.cvyuh.utils.core.response.rules.SchemaWhitelabelRule;
+import com.cvyuh.utils.response.rules.AuthenticateRule;
+import com.cvyuh.utils.response.rules.SchemaRule;
 import jakarta.ws.rs.core.MultivaluedMap;
 
 import java.util.List;
@@ -11,7 +11,8 @@ public final class RewriteRegistry {
     private RewriteRegistry() {}
 
     private static final List<ResponseRewriteRule> RULES = List.of(
-            new SchemaWhitelabelRule()
+            new SchemaRule(),
+            new AuthenticateRule()
             // new SomeOtherRule(),
             // ...
     );

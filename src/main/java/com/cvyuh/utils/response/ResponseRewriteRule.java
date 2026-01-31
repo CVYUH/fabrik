@@ -1,6 +1,5 @@
-package com.cvyuh.utils.core.response;
+package com.cvyuh.utils.response;
 
-import com.cvyuh.utils.core.HttpMethod;
 import jakarta.ws.rs.core.MultivaluedMap;
 
 public interface ResponseRewriteRule {

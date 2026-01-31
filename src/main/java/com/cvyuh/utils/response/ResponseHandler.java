@@ -1,13 +1,16 @@
-package com.cvyuh.utils.core.response;
+package com.cvyuh.utils.response;
 
-import com.cvyuh.utils.core.HttpMethod;
 import com.cvyuh.utils.exception.ExceptionUtil;
+import com.cvyuh.utils.misc.Timed;
 import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.core.Response;
+import org.jboss.logging.Logger;
 
 import java.util.function.Function;
 
 public interface ResponseHandler {
+
+    Logger logger = Logger.getLogger(ResponseHandler.class);
 
     static String readEntity(Response resp) {
         try {
@@ -33,8 +36,24 @@ public interface ResponseHandler {
     // direct ui -> quarkus -> client -> quarkus rewriteIfNeeded -> ui
     default Response handleResponse(Function<Void, Response> serviceCall, String path, HttpMethod method, MultivaluedMap<String, String> requestQuery) {
         try {
-            Response response = serviceCall.apply(null);
-            return ResponseRewrite.rewriteIfNeeded(response, path, method, requestQuery);
+            Timed.Result<Response> service = Timed.run(()
+                    -> serviceCall.apply(null));
+
+            Timed.Result<Response> rewritten = Timed.run(()
+                    -> ResponseRewrite.rewriteIfNeeded(service.value(), path, method, requestQuery));
+
+            long overall = service.elapsedMs() + rewritten.elapsedMs();
+            if(logger.isDebugEnabled()) {
+                logger.debugf(
+                        "Timings | rewrite=%dms service=%dms total=%dms | %s %s",
+                        rewritten.elapsedMs(),
+                        service.elapsedMs(),
+                        overall,
+                        method,
+                        path
+                );
+            }
+            return rewritten.value();
         } catch (Exception e) {
             return ExceptionUtil.handleException(e, path);
         }

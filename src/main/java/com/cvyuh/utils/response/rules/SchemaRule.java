@@ -1,13 +1,11 @@
-package com.cvyuh.utils.core.response.rules;
+package com.cvyuh.utils.response.rules;
 
-import com.cvyuh.utils.core.HttpMethod;
-import com.cvyuh.utils.core.response.ResponseRewriteRule;
-import com.cvyuh.utils.core.response.RewriteContext;
+import com.cvyuh.utils.response.HttpMethod;
+import com.cvyuh.utils.response.ResponseRewriteRule;
+import com.cvyuh.utils.response.RewriteContext;
 import jakarta.ws.rs.core.MultivaluedMap;
 
-import java.util.Map;
-
-public final class SchemaWhitelabelRule implements ResponseRewriteRule {
+public final class SchemaRule implements ResponseRewriteRule {
 
     @Override
     public boolean matches(HttpMethod method, String path, MultivaluedMap<String, String> query) {
