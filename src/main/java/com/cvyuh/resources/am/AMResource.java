@@ -4,7 +4,8 @@ import com.cvyuh.resources.Constants;
 import com.cvyuh.service.am.AMHeader;
 import com.cvyuh.service.am.AMQuery;
 import com.cvyuh.service.am.AMService;
-import com.cvyuh.utils.core.ResponseHandler;
+import com.cvyuh.utils.core.HttpMethod;
+import com.cvyuh.utils.core.response.ResponseHandler;
 import com.cvyuh.utils.log.LoggingContext;
 import io.vertx.core.json.JsonObject;
 import jakarta.inject.Inject;
@@ -46,7 +47,7 @@ public class AMResource implements ResponseHandler {
             @Context HttpHeaders httpHeaders
     ) {
         String path = preProcess(uriInfo, header, httpHeaders);
-        return handleResponse(v -> amService.doGet(path, header, query), path);
+        return handleResponse(v -> amService.doGet(path, header, query), path, HttpMethod.GET);
     }
 
     @POST
@@ -61,7 +62,7 @@ public class AMResource implements ResponseHandler {
     ) {
         String path = preProcess(uriInfo, header, httpHeaders);
         JsonObject jsonData = jsonBody != null && !jsonBody.trim().isEmpty() ? new JsonObject(jsonBody) : new JsonObject();
-        return handleResponse(v -> amService.doPost(path, header, query, jsonData.encode()), path);
+        return handleResponse(v -> amService.doPost(path, header, query, jsonData.encode()), path, HttpMethod.POST);
     }
 
     @PUT
@@ -75,7 +76,7 @@ public class AMResource implements ResponseHandler {
     ) {
         String path = preProcess(uriInfo, header, httpHeaders);
         JsonObject jsonData = jsonBody != null && !jsonBody.trim().isEmpty() ? new JsonObject(jsonBody) : new JsonObject();
-        return handleResponse(v -> amService.doPut(path, header, jsonData.encode()), path);
+        return handleResponse(v -> amService.doPut(path, header, jsonData.encode()), path, HttpMethod.PUT);
     }
 
     @PATCH
@@ -89,7 +90,7 @@ public class AMResource implements ResponseHandler {
     ) {
         String path = preProcess(uriInfo, header, httpHeaders);
         JsonObject jsonData = jsonBody != null && !jsonBody.trim().isEmpty() ? new JsonObject(jsonBody) : new JsonObject();
-        return handleResponse(v -> amService.doPatch(path, header, jsonData.encode()), path);
+        return handleResponse(v -> amService.doPatch(path, header, jsonData.encode()), path, HttpMethod.PATCH);
     }
 
     @DELETE
@@ -100,6 +101,6 @@ public class AMResource implements ResponseHandler {
             @Context HttpHeaders httpHeaders
     ) {
         String path = preProcess(uriInfo, amHeader, httpHeaders);
-        return handleResponse(v -> amService.doDelete(path, amHeader), path);
+        return handleResponse(v -> amService.doDelete(path, amHeader), path, HttpMethod.DELETE);
     }
 }

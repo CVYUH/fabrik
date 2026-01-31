@@ -1,9 +1,16 @@
-package com.cvyuh.utils.core;
+package com.cvyuh.utils.core.response;
 
+import com.cvyuh.utils.core.HttpMethod;
+import com.cvyuh.utils.core.response.ResponseRewrite;
+import com.cvyuh.utils.core.response.RewritePhase;
 import com.cvyuh.utils.exception.ExceptionUtil;
 import jakarta.ws.rs.core.Response;
 
+import java.util.EnumSet;
 import java.util.function.Function;
+
+import static com.cvyuh.utils.core.response.RewritePhase.PASS1;
+import static com.cvyuh.utils.core.response.RewritePhase.PASS2;
 
 public interface ResponseHandler {
 
@@ -29,9 +36,13 @@ public interface ResponseHandler {
     }
 
     // direct ui -> quarkus -> client -> quarkus -> ui
-    default Response handleResponse(Function<Void, Response> serviceCall, String path) {
+    default Response handleResponse(Function<Void, Response> serviceCall, String path, HttpMethod method) {
         try {
-            return serviceCall.apply(null);
+            Response response = serviceCall.apply(null);
+            // TODO: read from config later
+            EnumSet<RewritePhase> phases = EnumSet.of(PASS1, PASS2);
+            //EnumSet<RewritePhase> phases = EnumSet.noneOf(RewritePhase.class);
+            return ResponseRewrite.rewriteIfNeeded(response, path, method, phases);
         } catch (Exception e) {
             return ExceptionUtil.handleException(e, path);
         }
