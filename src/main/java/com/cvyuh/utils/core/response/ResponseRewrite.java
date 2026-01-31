@@ -1,73 +1,65 @@
 package com.cvyuh.utils.core.response;
 
 import com.cvyuh.utils.core.HttpMethod;
+import com.cvyuh.utils.core.branding.BrandResolvers;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.core.Response;
 
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 
-public class ResponseRewrite {
+public final class ResponseRewrite {
 
-    public static Response rewriteIfNeeded(Response original, String path, HttpMethod method, EnumSet<RewritePhase> phases) {
+    private ResponseRewrite() {}
+
+    /**
+     * Rewrite only if a registry rule matches (method + path + requestQuery).
+     * Otherwise return response untouched
+     */
+    public static Response rewriteIfNeeded(Response original, String path, HttpMethod method, MultivaluedMap<String, String> requestQuery) {
         if (original == null || !original.hasEntity()) {
             return original;
         }
 
-        MediaType mediaType = original.getMediaType();
-        if (!isTextual(mediaType)) {
+        if (!isTextual(original.getMediaType())) {
             return original;
         }
 
-        original.bufferEntity(); // critical
+        // IMPORTANT: Do not buffer/read unless a rule might apply.
+        if (!RewriteRegistry.anyMatch(method, path, requestQuery)) {
+            return original;
+        }
+
+        // Now we know at least one rule matches → safe to buffer and rewrite.
+        original.bufferEntity(); // critical to allow read + later rebuild safely
 
         String body = ResponseHandler.readEntity(original);
         if (body == null || body.isEmpty()) {
             return rebuild(original, body);
         }
 
-        String realm = resolveRealm(original, path);
+        RewriteContext ctx = new RewriteContext(
+                resolveRealm(path),
+                method,
+                path,
+                requestQuery,
+                original.getStatus(),
+                original.getMediaType(),
+                BrandResolvers.current() // static access for now
+        );
 
-        // ----- PASS 1 -----
         String rewritten = body;
-        if (phases.contains(RewritePhase.PASS1)) {
-            rewritten = rewriteBranding(rewritten, realm);
-        }
-
-        // ----- PASS 2 -----
-        if (phases.contains(RewritePhase.PASS2)) {
-            RewriteContext ctx = new RewriteContext(realm, method, path, original.getHeaders());
-
-            for (ResponseRewriteRule rule : RewriteRegistry.rules()) {
-                if (rule.matches(method, path, ctx.query())) {
-                    rewritten = rule.rewrite(rewritten, ctx);
-                }
+        for (ResponseRewriteRule rule : RewriteRegistry.rules()) {
+            if (rule.matches(method, path, requestQuery)) {
+                rewritten = rule.rewrite(rewritten, ctx);
             }
         }
 
+        // If no change, you can return original, but we've already consumed entity.
+        // So we rebuild in all rewrite paths.
         return rebuild(original, rewritten);
-    }
-
-    static String rewriteBranding(String body, String realm) {
-        Map<String, String> replacements = brandingForRealm(realm);
-        if (replacements.isEmpty()) {
-            return body;
-        }
-
-        for (Map.Entry<String, String> entry : replacements.entrySet()) {
-            body = body.replace(entry.getKey(), entry.getValue());
-        }
-        return body;
-    }
-
-    static Map<String, String> brandingForRealm(String realm) {
-        return Map.of(
-                "OpenAM", "CVYUH",
-                "ForgeRock", "CVYUH"
-        );
     }
 
     static boolean isTextual(MediaType mediaType) {
@@ -77,7 +69,8 @@ public class ResponseRewrite {
         return type.contains("json")
                 || type.contains("text")
                 || type.contains("javascript")
-                || type.contains("html");
+                || type.contains("html")
+                || type.contains("xml");
     }
 
     static Response rebuild(Response original, String body) {
@@ -95,7 +88,7 @@ public class ResponseRewrite {
         for (Map.Entry<String, List<Object>> entry : headers.entrySet()) {
             String key = entry.getKey();
 
-            // Skip Content-Length (will be recalculated)
+            // Content-Length must be recalculated
             if (HttpHeaders.CONTENT_LENGTH.equalsIgnoreCase(key)) {
                 continue;
             }
@@ -106,15 +99,13 @@ public class ResponseRewrite {
         }
     }
 
-    // figure out realm
-    static String resolveRealm(Response response, String path) {
-        // examples:
-        // - from path
-        // - from query param
-        // - from cookie
-        // - from header
+    /**
+     * Realm resolution is intentionally loose and safe.
+     * Extend later if needed (from path parsing).
+     */
+    static String resolveRealm(String path) {
+        // Example heuristic later:
+        // /realms/root/realms/acme/...  -> acme
         return "default";
     }
-
-
 }

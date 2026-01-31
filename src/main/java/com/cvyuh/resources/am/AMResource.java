@@ -47,7 +47,7 @@ public class AMResource implements ResponseHandler {
             @Context HttpHeaders httpHeaders
     ) {
         String path = preProcess(uriInfo, header, httpHeaders);
-        return handleResponse(v -> amService.doGet(path, header, query), path, HttpMethod.GET);
+        return handleResponse(v -> amService.doGet(path, header, query), path, HttpMethod.GET, uriInfo.getQueryParameters());
     }
 
     @POST
@@ -62,7 +62,7 @@ public class AMResource implements ResponseHandler {
     ) {
         String path = preProcess(uriInfo, header, httpHeaders);
         JsonObject jsonData = jsonBody != null && !jsonBody.trim().isEmpty() ? new JsonObject(jsonBody) : new JsonObject();
-        return handleResponse(v -> amService.doPost(path, header, query, jsonData.encode()), path, HttpMethod.POST);
+        return handleResponse(v -> amService.doPost(path, header, query, jsonData.encode()), path, HttpMethod.POST, uriInfo.getQueryParameters());
     }
 
     @PUT
@@ -76,7 +76,7 @@ public class AMResource implements ResponseHandler {
     ) {
         String path = preProcess(uriInfo, header, httpHeaders);
         JsonObject jsonData = jsonBody != null && !jsonBody.trim().isEmpty() ? new JsonObject(jsonBody) : new JsonObject();
-        return handleResponse(v -> amService.doPut(path, header, jsonData.encode()), path, HttpMethod.PUT);
+        return handleResponse(v -> amService.doPut(path, header, jsonData.encode()), path, HttpMethod.PUT, uriInfo.getQueryParameters());
     }
 
     @PATCH
@@ -90,7 +90,7 @@ public class AMResource implements ResponseHandler {
     ) {
         String path = preProcess(uriInfo, header, httpHeaders);
         JsonObject jsonData = jsonBody != null && !jsonBody.trim().isEmpty() ? new JsonObject(jsonBody) : new JsonObject();
-        return handleResponse(v -> amService.doPatch(path, header, jsonData.encode()), path, HttpMethod.PATCH);
+        return handleResponse(v -> amService.doPatch(path, header, jsonData.encode()), path, HttpMethod.PATCH, uriInfo.getQueryParameters());
     }
 
     @DELETE
@@ -101,6 +101,6 @@ public class AMResource implements ResponseHandler {
             @Context HttpHeaders httpHeaders
     ) {
         String path = preProcess(uriInfo, amHeader, httpHeaders);
-        return handleResponse(v -> amService.doDelete(path, amHeader), path, HttpMethod.DELETE);
+        return handleResponse(v -> amService.doDelete(path, amHeader), path, HttpMethod.DELETE, uriInfo.getQueryParameters());
     }
 }
