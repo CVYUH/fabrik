@@ -5,6 +5,8 @@ import com.cvyuh.utils.misc.Json;
 import com.cvyuh.utils.response.HttpMethod;
 import com.cvyuh.utils.response.ResponseRewriteRule;
 import com.cvyuh.utils.response.RewriteContext;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import jakarta.ws.rs.core.MultivaluedMap;
 
@@ -38,6 +40,52 @@ public final class AuthenticateRule implements ResponseRewriteRule {
         }
 
         root.put("header", branded);
+
+        // ---- TextOutputCallback branding (UI-aligned) ----
+        if (root.has("callbacks") && root.get("callbacks").isArray()) {
+            ArrayNode callbacks = (ArrayNode) root.get("callbacks");
+
+            for (JsonNode cbNode : callbacks) {
+                if (!cbNode.isObject()) continue;
+
+                ObjectNode callback = (ObjectNode) cbNode;
+                if (!"TextOutputCallback".equals(callback.path("type").asText())) {
+                    continue;
+                }
+
+                ArrayNode output = (ArrayNode) callback.get("output");
+                if (output == null) continue;
+
+                String messageType = null;
+                ObjectNode messageNode = null;
+
+                for (JsonNode outNode : output) {
+                    if (!outNode.isObject()) continue;
+
+                    ObjectNode out = (ObjectNode) outNode;
+                    String name = out.path("name").asText();
+
+                    if ("messageType".equals(name)) {
+                        messageType = out.path("value").asText();
+                    } else if ("message".equals(name)) {
+                        messageNode = out;
+                    }
+                }
+
+                // Only brand plain-text messages (messageType == "0")
+                if (!"0".equals(messageType) || messageNode == null) {
+                    continue;
+                }
+
+                String text = messageNode.path("value").asText(null);
+                if (text == null || text.isBlank()) {
+                    continue;
+                }
+
+                messageNode.put("value", applyBranding(text, ctx));
+            }
+        }
+
         return Json.stringify(root);
     }
 
