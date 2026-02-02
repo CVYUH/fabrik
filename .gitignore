@@ -45,3 +45,5 @@ nb-configuration.xml
 .certs/
 /src/main/resources/shared-modules/package-lock.json
 /src/main/resources/shared-modules/node_modules/
+
+z01
