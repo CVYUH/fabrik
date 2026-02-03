@@ -35,6 +35,8 @@ public final class AuthenticateRule implements ResponseRewriteRule {
         String branded = null;
         if(header.equals("WebAuthn Authentication")) {
             branded = "Sign in to CVYUH";
+        } else if (header.equals("WebAuthn Registration")) {
+            branded = "";
         } else {
             branded = applyBranding(header, ctx);
         }

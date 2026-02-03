@@ -1,6 +1,7 @@
 package com.cvyuh.utils.response;
 
 import com.cvyuh.utils.response.rules.AuthenticateRule;
+import com.cvyuh.utils.response.rules.ModuleTypesRule;
 import com.cvyuh.utils.response.rules.SchemaRule;
 import jakarta.ws.rs.core.MultivaluedMap;
 
@@ -12,7 +13,8 @@ public final class RewriteRegistry {
 
     private static final List<ResponseRewriteRule> RULES = List.of(
             new SchemaRule(),
-            new AuthenticateRule()
+            new AuthenticateRule(),
+            new ModuleTypesRule()
             // new SomeOtherRule(),
             // ...
     );
