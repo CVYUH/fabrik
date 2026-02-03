@@ -1,18 +1,26 @@
 package com.cvyuh.utils.exception;
 
-import io.quarkus.logging.Log;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
+import org.jboss.logging.Logger;
 
 public class ExceptionUtil {
+
+    private static final Logger logger = Logger.getLogger(ExceptionUtil.class);
+
     public static Response handleException(Exception e, String path) {
         if (e instanceof WebApplicationException) {
             Response res = ((WebApplicationException) e).getResponse();
-            Log.error("Error invoking service: " + res.getStatus() + " - " + e.getMessage());
-            Log.error(path + ": WebApplicationException Exception ", e);
+            logger.errorf(
+                    "Error invoking service: status=%d path=%s message=%s",
+                    res != null ? res.getStatus() : -1,
+                    path,
+                    e.getMessage()
+            );
+            logger.error(path + ": WebApplicationException Exception", e);
             return res;
         } else {
-            Log.error("Unhandled Exception: " + path, e);
+            logger.error("Unhandled Exception: " + path, e);
             return Response.serverError().build();
         }
     }

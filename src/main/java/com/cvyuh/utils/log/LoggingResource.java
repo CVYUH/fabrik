@@ -1,6 +1,5 @@
 package com.cvyuh.utils.log;
 
-import io.quarkus.logging.Log;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -16,6 +15,7 @@ import java.util.*;
 public class LoggingResource {
 
     private static final LogContext logContext = LogContext.getLogContext();
+    private static final Logger logger = logContext.getLogger(LoggingResource.class.getName());
 
     /**
      * 1. Get all log levels
@@ -23,7 +23,7 @@ public class LoggingResource {
     @GET
     @Path("/levels")
     public Response getAllLogLevels() {
-        Log.info("Fetching all log levels");
+        logger.info("Fetching all log levels");
 
         Map<String, String> levels = new TreeMap<>();
         Enumeration<String> loggerNames = logContext.getLoggerNames();

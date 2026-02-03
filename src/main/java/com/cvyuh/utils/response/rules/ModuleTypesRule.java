@@ -15,8 +15,8 @@ public final class ModuleTypesRule implements ResponseRewriteRule {
 
     // pre-registered / allowed module ids
     private static final Set<String> ALLOWED = Set.of(
-            "amAuthADAgent", "amAuthGeofence", //TODO
-            "datastore", "ldap", "authenticatoroath",
+            //"amAuthADAgent", "amAuthGeofence", //TODO
+            "datastore", "ldap", "authenticatoroath", "webauthnreg", "webauthnauth",
             "activedirectory", "oauth2"
     );
 

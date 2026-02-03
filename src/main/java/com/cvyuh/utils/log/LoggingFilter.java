@@ -1,6 +1,5 @@
 package com.cvyuh.utils.log;
 
-import io.quarkus.logging.Log;
 import jakarta.annotation.Priority;
 import jakarta.ws.rs.Priorities;
 import jakarta.ws.rs.client.ClientRequestContext;
@@ -260,7 +259,7 @@ public class LoggingFilter implements ContainerRequestFilter, ContainerResponseF
      */
     private void logAtLevelWithMessage(String name, Level level, String message) {
         if (name == null || level == null) {
-            Log.info(message + " (default)");
+            logger.info(message + " (default)");
             return;
         }
 
