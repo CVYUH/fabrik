@@ -1,0 +1,146 @@
+name: fabrik -> ECR
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ap-south-1
+  AWS_ACCOUNT_ID: "569945792985"
+  ECR_REPO: apps/panorama/fabrik
+  ARCHES: "arm64"   # change later if needed
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java (Temurin 21)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Cache Maven repo
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            maven-${{ runner.os }}-
+
+      - name: Build Provision artifacts
+        shell: bash
+        run: ./mvnw -B -q clean install
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::569945792985:role/GitHubActionsECRUnified
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Ensure ECR repository exists
+        shell: bash
+        run: |
+          aws ecr describe-repositories \
+            --repository-names "${{ env.ECR_REPO }}" \
+            --region "${{ env.AWS_REGION }}" >/dev/null 2>&1 \
+          || aws ecr create-repository \
+            --repository-name "${{ env.ECR_REPO }}" \
+            --image-scanning-configuration scanOnPush=true \
+            --region "${{ env.AWS_REGION }}"
+
+      - name: Apply lifecycle policy
+        shell: bash
+        run: |
+          cat > policy.json <<'JSON'
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Expire untagged after 7 days",
+                "selection": { "tagStatus": "untagged", "countType": "sinceImagePushed", "countUnit": "days", "countNumber": 7 },
+                "action": { "type": "expire" }
+              },
+              {
+                "rulePriority": 2,
+                "description": "Keep last 3 (by count)",
+                "selection": { "tagStatus": "any", "countType": "imageCountMoreThan", "countNumber": 3 },
+                "action": { "type": "expire" }
+              }
+            ]
+          }
+          JSON
+          aws ecr put-lifecycle-policy \
+            --repository-name "${{ env.ECR_REPO }}" \
+            --lifecycle-policy-text file://policy.json \
+            --region "${{ env.AWS_REGION }}" || true
+
+      - name: ECR login (Docker)
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Setup Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Compute tags
+        id: vars
+        shell: bash
+        run: |
+          echo "BRANCH_TAG=${GITHUB_REF_NAME//\//-}" >> "$GITHUB_OUTPUT"
+          echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Build & Push per arch
+        shell: bash
+        env:
+          REG: ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
+          REPO: ${{ env.ECR_REPO }}
+          TAG1: ${{ steps.vars.outputs.BRANCH_TAG }}
+          TAG2: sha-${{ steps.vars.outputs.SHORT_SHA }}
+          ARCHES: ${{ env.ARCHES }}
+        run: |
+          set -euo pipefail
+          IFS=',' read -r -a ARR <<< "$ARCHES"
+          : > .arch_refs_1
+          : > .arch_refs_2
+          for A in "${ARR[@]}"; do
+            A=$(echo "$A" | xargs)
+            [ -n "$A" ] || continue
+            echo ">>> Building for $A"
+            docker buildx build \
+              -f src/main/docker/Dockerfile.gvm \
+              --platform "linux/$A" \
+              --push \
+              --provenance=false --sbom=false \
+              -t "${REG}/${REPO}:${TAG1}-${A}" \
+              -t "${REG}/${REPO}:${TAG2}-${A}" \
+              .
+            echo "${REG}/${REPO}:${TAG1}-${A}" >> .arch_refs_1
+            echo "${REG}/${REPO}:${TAG2}-${A}" >> .arch_refs_2
+          done
+
+      - name: Create multi-arch index (only when multiple arches)
+        if: contains(env.ARCHES, ',')
+        shell: bash
+        env:
+          REG: ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
+          REPO: ${{ env.ECR_REPO }}
+          TAG1: ${{ steps.vars.outputs.BRANCH_TAG }}
+          TAG2: sha-${{ steps.vars.outputs.SHORT_SHA }}
+        run: |
+          set -euo pipefail
+          REFS1=$(tr '\n' ' ' < .arch_refs_1)
+          REFS2=$(tr '\n' ' ' < .arch_refs_2)
+          echo ">>> Creating index ${REG}/${REPO}:${TAG1} from: ${REFS1}"
+          docker buildx imagetools create -t "${REG}/${REPO}:${TAG1}" ${REFS1}
+          echo ">>> Creating index ${REG}/${REPO}:${TAG2} from: ${REFS2}"
+          docker buildx imagetools create -t "${REG}/${REPO}:${TAG2}" ${REFS2}
+
+      - name: Done
+        shell: bash
+        run: echo "fabrik images pushed to ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}"
