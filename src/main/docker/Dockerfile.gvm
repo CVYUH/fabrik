@@ -4,7 +4,6 @@ RUN mkdir /deployments \
  && chown 1001:root /deployments \
  && chmod g+rwX /deployments
 
-# entropy fix
 RUN echo "securerandom.source=file:/dev/urandom" >> \
     $JAVA_HOME/conf/security/java.security
 

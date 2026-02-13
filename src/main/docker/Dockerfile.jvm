@@ -1,32 +1,18 @@
 FROM eclipse-temurin:21-jre-jammy
 
-# Create required directories with correct permissions
 RUN mkdir /deployments /ldifs \
  && chown 1001:root /deployments /ldifs \
  && chmod g+rwX /deployments /ldifs
 
-# Fix for low-entropy startup
 RUN echo "securerandom.source=file:/dev/urandom" >> \
-    /usr/lib/jvm/java-21-openjdk-amd64/conf/security/java.security
+    $JAVA_HOME/conf/security/java.security
 
-# In Temurin Jammy, the JVM path is usually one of:
-    # /usr/lib/jvm/temurin-21-jre-amd64/...
-    # /opt/java/openjdk/...
-# Temurin ≠ Ubuntu OpenJDK packaging.
-# RUN echo "securerandom.source=file:/dev/urandom" >> \
-#   $(dirname $(readlink -f $(which java)))/../conf/security/java.security
-# OR
-# ENV JAVA_OPTIONS="$JAVA_OPTIONS -Djava.security.egd=file:/dev/urandom"
-
-# Copy application
 COPY target/*-runner.jar /deployments/app.jar
 
-# Quarkus runtime config
 ENV JAVA_OPTIONS="-Dquarkus.http.host=0.0.0.0"
 
 EXPOSE 8080
 
-# Run as non-root
 USER 1001
 
 ENTRYPOINT ["java","-jar","/deployments/app.jar"]
