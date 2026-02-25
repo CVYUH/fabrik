@@ -1,0 +1,209 @@
+package com.cvyuh.proxy;
+
+import io.quarkus.vertx.web.RouteFilter;
+import io.vertx.core.Future;
+import io.vertx.core.MultiMap;
+import io.vertx.core.Vertx;
+import io.vertx.core.http.HttpClient;
+import io.vertx.core.http.HttpClientOptions;
+import io.vertx.core.http.HttpClientRequest;
+import io.vertx.core.http.HttpServerRequest;
+import io.vertx.ext.web.RoutingContext;
+import io.vertx.httpproxy.HttpProxy;
+import io.vertx.httpproxy.ProxyContext;
+import io.vertx.httpproxy.ProxyInterceptor;
+import io.vertx.httpproxy.ProxyOptions;
+import io.vertx.httpproxy.ProxyRequest;
+import io.vertx.httpproxy.ProxyResponse;
+
+import jakarta.annotation.PostConstruct;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+
+@ApplicationScoped
+public class AMProxy {
+
+    @Inject
+    Vertx vertx;
+
+    private HttpProxy proxy;
+    private HttpClient client;
+
+    private static final String UPSTREAM_HOST = "am.iam.svc.cluster.local";
+    private static final int UPSTREAM_PORT = 8080;
+
+    @PostConstruct
+    void init() {
+
+        client = vertx.createHttpClient(
+                new HttpClientOptions()
+                        .setKeepAlive(true)
+                        .setPipelining(false)
+                        .setMaxPoolSize(800) // benchmark later!
+                        .setIdleTimeout(60)
+        );
+
+        proxy = HttpProxy
+                .reverseProxy(new ProxyOptions().setSupportWebSocket(true), client)
+                .origin(UPSTREAM_PORT, UPSTREAM_HOST)
+                .addInterceptor(new DeterministicWireInterceptor());
+    }
+
+    @RouteFilter(100)
+    void filter(RoutingContext rc) {
+
+        HttpServerRequest req = rc.request();
+        String path = req.path();
+
+        // proxy everything under /ctrl (XUI + json + assets)
+        if (!path.startsWith("/ctrl")) {
+            rc.next();
+            return;
+        }
+
+        // log only /ctrl/.../json/... if you want less noise
+        boolean logThis = path.contains("/json/") || path.startsWith("/ctrl/json/");
+
+        if (logThis) {
+            System.out.println("\n================ INCOMING (BROWSER → QUARKUS) ================");
+            System.out.println(req.method() + " " + req.uri());
+            dumpHeaders("IN ", req.headers());
+        }
+
+        proxy.handle(req);
+    }
+
+    class DeterministicWireInterceptor implements ProxyInterceptor {
+
+        @Override
+        public Future<ProxyResponse> handleProxyRequest(ProxyContext context) {
+
+            ProxyRequest proxyReq = context.request();
+            HttpServerRequest original = proxyReq.proxiedRequest();
+
+            String path = original.path();
+            boolean logThis = path.contains("/json/") || path.startsWith("/ctrl/json/");
+
+            // ----------------------
+            // Pure proxy header rules:
+            // - do NOT delete any headers/cookies
+            // - ensure final Host on the wire is the original Host (realm routing)
+            // - only add X-Forwarded-* if missing
+            // - append X-Forwarded-For (don’t overwrite chain)
+            // ----------------------
+
+            String originalHost = original.getHeader("Host");
+
+            // add forwarded headers only if missing
+            ensureForwardingHeaders(proxyReq.headers(), original);
+
+            if (logThis) {
+                System.out.println("\n================ OUTGOING (QUARKUS → OPENAM) ================");
+                System.out.println(proxyReq.getMethod() + " " + proxyReq.getURI());
+                dumpHeaders("OUT ", proxyReq.headers());
+            }
+
+            // Build real upstream request ourselves => THIS is what actually goes on the wire
+            return client
+                    .request(proxyReq.getMethod(), UPSTREAM_PORT, UPSTREAM_HOST, proxyReq.getURI())
+                    .compose((HttpClientRequest upstreamReq) -> {
+
+                        upstreamReq.headers().setAll(proxyReq.headers());
+
+                        // Force final Host header for OpenAM realm routing
+                        if (originalHost != null) {
+                            upstreamReq.headers().set("Host", originalHost);
+                        }
+
+                        if (logThis) {
+                            System.out.println("\n================ WIRE (ACTUAL → OPENAM) =====================");
+                            dumpHeaders("WIRE ", upstreamReq.headers());
+                        }
+
+                        // stream client request -> upstream
+                        return proxyReq.send(upstreamReq);
+                    })
+                    .onFailure(Throwable::printStackTrace);
+        }
+
+        @Override
+        public Future<Void> handleProxyResponse(ProxyContext context) {
+
+            ProxyResponse resp = context.response();
+            HttpServerRequest original = context.request().proxiedRequest();
+
+            String path = original.path();
+            boolean logThis = path.contains("/json/") || path.startsWith("/ctrl/json/");
+
+            if (logThis) {
+                System.out.println("\n================ RESPONSE (OPENAM → QUARKUS) ================");
+                if (resp != null) {
+                    System.out.println("STATUS: " + resp.getStatusCode() + " " + resp.getStatusMessage());
+                    dumpHeaders("BACK ", resp.headers());
+                } else {
+                    System.out.println("Response is null");
+                }
+            }
+
+            return context.sendResponse()
+                    .onFailure(Throwable::printStackTrace);
+        }
+
+        private void ensureForwardingHeaders(MultiMap out, HttpServerRequest original) {
+
+            // preserve incoming chain if present
+            String inXff = headerAnyCase(original.headers(), "X-Forwarded-For");
+            String peerIp = original.remoteAddress() != null ? original.remoteAddress().host() : null;
+
+            if (inXff == null || inXff.isBlank()) {
+                if (peerIp != null) out.set("X-Forwarded-For", peerIp);
+            } else {
+                // append if peer not already in chain
+                if (peerIp != null && !inXff.contains(peerIp)) {
+                    out.set("X-Forwarded-For", inXff + ", " + peerIp);
+                } else {
+                    out.set("X-Forwarded-For", inXff);
+                }
+            }
+
+            // proto: keep what ingress said if present, else fall back to local scheme
+            String inProto = headerAnyCase(original.headers(), "X-Forwarded-Proto");
+            if (headerAnyCase(out, "X-Forwarded-Proto") == null) {
+                out.set("X-Forwarded-Proto", inProto != null ? inProto : original.scheme());
+            }
+
+            // host: keep what ingress said if present, else use Host
+            String host = original.getHeader("Host");
+            if (headerAnyCase(out, "X-Forwarded-Host") == null && host != null) {
+                out.set("X-Forwarded-Host", host);
+            }
+
+            // port: keep incoming if present; else infer from proto
+            String inPort = headerAnyCase(original.headers(), "X-Forwarded-Port");
+            if (headerAnyCase(out, "X-Forwarded-Port") == null) {
+                if (inPort != null) {
+                    out.set("X-Forwarded-Port", inPort);
+                } else {
+                    String proto = headerAnyCase(out, "X-Forwarded-Proto");
+                    out.set("X-Forwarded-Port", "https".equalsIgnoreCase(proto) ? "443" : "80");
+                }
+            }
+        }
+
+        private String headerAnyCase(MultiMap h, String name) {
+            String v = h.get(name);
+            if (v != null) return v;
+            v = h.get(name.toLowerCase());
+            if (v != null) return v;
+            return h.get(name.replace("-", "_")); // just in case
+        }
+    }
+
+    private static void dumpHeaders(String prefix, MultiMap headers) {
+        for (String name : headers.names()) {
+            for (String value : headers.getAll(name)) {
+                System.out.println(prefix + name + " = " + value);
+            }
+        }
+    }
+}
