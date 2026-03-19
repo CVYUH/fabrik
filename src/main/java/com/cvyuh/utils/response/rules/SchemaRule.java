@@ -9,7 +9,7 @@ public final class SchemaRule implements ResponseRewriteRule {
 
     @Override
     public boolean matches(HttpMethod method, String path, MultivaluedMap<String, String> query) {
-        return method == HttpMethod.POST && "schema".equals(query.getFirst("_action"));
+        return method == HttpMethod.POST && "schema".equals(queryAction(query));
     }
 
     @Override

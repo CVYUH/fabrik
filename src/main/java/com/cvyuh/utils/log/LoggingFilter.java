@@ -65,8 +65,8 @@ public class LoggingFilter implements ContainerRequestFilter, ContainerResponseF
         long startTime = System.currentTimeMillis();
         requestContext.setProperty(SERVER_TIMER_KEY, startTime);
 
-        // Process headers for structured logging - only at TRACE level
-        if (level.intValue() <= Level.TRACE.intValue()) {
+        // Process headers for structured logging - at DEBUG level or lower
+        if (level.intValue() <= Level.DEBUG.intValue()) {
             processHeaders(requestContext.getHeaders(), "req");
         }
 
@@ -127,8 +127,8 @@ public class LoggingFilter implements ContainerRequestFilter, ContainerResponseF
         MDC.put("direction", "COMPLETED");
         MDC.put(LoggingContext.METHOD, requestContext.getMethod());
 
-        // Process response headers only at TRACE level
-        if (level.intValue() <= Level.TRACE.intValue()) {
+        // Process response headers at DEBUG level or lower
+        if (level.intValue() <= Level.DEBUG.intValue()) {
             processHeaders(responseContext.getHeaders(), "res");
         }
 
@@ -168,8 +168,8 @@ public class LoggingFilter implements ContainerRequestFilter, ContainerResponseF
         MDC.put(LoggingContext.METHOD, requestContext.getMethod());
         MDC.put("url", requestContext.getUri().toString());
 
-        // Process client request headers at TRACE level
-        if (level.intValue() <= Level.TRACE.intValue()) {
+        // Process client request headers at DEBUG level or lower
+        if (level.intValue() <= Level.DEBUG.intValue()) {
             processHeaders(requestContext.getHeaders(), "clientReq");
         }
 
@@ -227,8 +227,8 @@ public class LoggingFilter implements ContainerRequestFilter, ContainerResponseF
         MDC.put("status", responseContext.getStatus());
         MDC.put("duration", duration);
 
-        // Process client response headers only at TRACE level
-        if (level.intValue() <= Level.TRACE.intValue()) {
+        // Process client response headers at DEBUG level or lower
+        if (level.intValue() <= Level.DEBUG.intValue()) {
             processHeaders(responseContext.getHeaders(), "clientRes");
         }
 

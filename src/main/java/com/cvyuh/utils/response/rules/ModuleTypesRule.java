@@ -24,7 +24,7 @@ public final class ModuleTypesRule implements ResponseRewriteRule {
     public boolean matches(HttpMethod method, String path, MultivaluedMap<String, String> query) {
         return method == HttpMethod.POST
                 && path.endsWith("/realm-config/authentication/modules")
-                && "getAllTypes".equals(query.getFirst("_action"));
+                && "getAllTypes".equals(queryAction(query));
     }
 
     @Override

@@ -14,7 +14,7 @@ import org.jboss.logging.MDC;
 
 import java.util.function.Function;
 
-@Path(Constants.CONTEXT.AM)
+@Path(Constants.V0.AM)
 public class AMResource implements ResponseHandler {
 
     private static final Logger logger = Logger.getLogger(AMResource.class);
@@ -24,8 +24,8 @@ public class AMResource implements ResponseHandler {
     AMService amService;
 
     private String preProcess(UriInfo uriInfo) {
-        MDC.put(LoggingContext.SERVICE, AMService.class.getName());
-        String subPath = uriInfo.getPath().substring(Constants.CONTEXT.AM.length());
+        MDC.put(LoggingContext.SERVICE, "com.cvyuh.AMResource");
+        String subPath = uriInfo.getPath().substring(Constants.V0.AM.length());
         return "json" + subPath;
     }
 
