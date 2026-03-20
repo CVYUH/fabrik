@@ -20,9 +20,6 @@ public final class AMPaths {
     public static final String REALMS = GLOBAL + "realms";
     public static final String SERVERS = GLOBAL + "servers";
 
-    // Realm-scoped (realmRouter)
-    public static final String REALM_KEYSTORE = REALM + "keystore";
-
     public static String realm(String path, String realmName) {
         return path.replace("{realm}", realmName);
     }
