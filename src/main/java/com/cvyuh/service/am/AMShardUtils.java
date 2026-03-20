@@ -37,6 +37,13 @@ public final class AMShardUtils {
             rewrittenCookie = "amlbcookie=" + cookieValue;
         }
         headers.putSingle("Cookie", rewrittenCookie);
+
+        // Remove content headers — the REST client sets these based on actual body
+        headers.remove("Content-Type");
+        headers.remove("content-type");
+        headers.remove("Content-Length");
+        headers.remove("content-length");
+
         return headers;
     }
 }

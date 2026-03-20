@@ -61,7 +61,6 @@ public class KeysResource implements ResponseHandler {
 
     @POST
     @Path("/{tenant}/{purpose}")
-    @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public Response generate(@PathParam("tenant") String tenant, @PathParam("purpose") String purpose, String body) {
         preProcess();
@@ -80,12 +79,40 @@ public class KeysResource implements ResponseHandler {
                 "keys/" + tenant + "/" + purpose, HttpMethod.DELETE, null);
     }
 
+    /**
+     * Import key from Vault to all AM shards.
+     * Reads key from Vault (via Provision), pushes to each shard via replaceKey.
+     */
     @POST
     @Path("/{tenant}/{purpose}/import")
     @Produces(MediaType.APPLICATION_JSON)
-    public Response importToAM(@PathParam("tenant") String tenant, @PathParam("purpose") String purpose) {
+    public Response importToAM(@PathParam("tenant") String tenant, @PathParam("purpose") String purpose,
+                               @Context HttpHeaders httpHeaders) {
         preProcess();
-        return Response.status(501).entity("{\"error\":\"import endpoint not yet wired\"}").build();
+        return handleResponse(v -> doImportToAM(tenant, purpose, httpHeaders), "keys/" + tenant + "/" + purpose + "/import", HttpMethod.POST, null);
+    }
+
+    /**
+     * Renew a realm key: generate new → update Vault → replace on all AM shards.
+     */
+    @POST
+    @Path("/{tenant}/{purpose}/renew")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response renewRealmKey(@PathParam("tenant") String tenant, @PathParam("purpose") String purpose,
+                                  String body, @Context HttpHeaders httpHeaders) {
+        preProcess();
+        return handleResponse(v -> doRenewRealmKey(tenant, purpose, body, httpHeaders), "keys/" + tenant + "/" + purpose + "/renew", HttpMethod.POST, null);
+    }
+
+    /**
+     * Renew a stock key (realm=ALL): generate new → replace on all AM shards. No Vault.
+     */
+    @POST
+    @Path("/renew/{alias}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response renewStockKey(@PathParam("alias") String alias, String body, @Context HttpHeaders httpHeaders) {
+        preProcess();
+        return handleResponse(v -> doRenewStockKey(alias, body, httpHeaders), "keys/renew/" + alias, HttpMethod.POST, null);
     }
 
     // ======================== Core Logic ========================
@@ -173,6 +200,91 @@ public class KeysResource implements ResponseHandler {
         result.set("tenants", Json.MAPPER.valueToTree(tenants));
         result.set("shards", Json.MAPPER.valueToTree(Constants.amShardHosts()));
         result.set("keys", rows);
+        return Response.ok(result.toString()).type(MediaType.APPLICATION_JSON).build();
+    }
+
+    /**
+     * Import from Vault to AM shards — reads key from Vault via Provision, pushes to each shard.
+     */
+    private Response doImportToAM(String tenant, String purpose, HttpHeaders httpHeaders) {
+        // Read key from Provision (which reads from Vault)
+        Response vaultResp = provisionService.doGet("kv/v2/keys/" + tenant + "/" + purpose);
+        if (vaultResp.getStatus() != 200) {
+            return Response.status(vaultResp.getStatus()).entity("{\"error\":\"Key not found in Vault\"}").type(MediaType.APPLICATION_JSON).build();
+        }
+
+        ObjectNode vaultBody = Json.parseObject(vaultResp.readEntity(String.class));
+        ObjectNode keyData = vaultBody.path("data").path("data").deepCopy();
+        if (keyData == null || !keyData.has("privateKeyBase64")) {
+            return Response.status(404).entity("{\"error\":\"Key data not found in Vault response\"}").type(MediaType.APPLICATION_JSON).build();
+        }
+
+        String alias = tenant + "-" + purpose;
+        return replaceKeyOnAllShards(alias, keyData, httpHeaders);
+    }
+
+    /**
+     * Renew realm key: generate via Provision → Vault, then replace on AM shards.
+     */
+    private Response doRenewRealmKey(String tenant, String purpose, String body, HttpHeaders httpHeaders) {
+        // Generate + store in Vault via Provision
+        Response genResp = provisionService.doPost("kv/v2/keys/" + tenant + "/" + purpose, body != null ? body : "{}");
+        if (genResp.getStatus() >= 300) {
+            return Response.status(genResp.getStatus()).entity(genResp.readEntity(String.class)).type(MediaType.APPLICATION_JSON).build();
+        }
+
+        // Now import from Vault to AM
+        return doImportToAM(tenant, purpose, httpHeaders);
+    }
+
+    /**
+     * Renew stock key (no Vault): generate locally via Provision, replace on AM shards.
+     */
+    private Response doRenewStockKey(String alias, String body, HttpHeaders httpHeaders) {
+        // Generate a key via Provision's stock key endpoint (no Vault storage)
+        Response genResp = provisionService.doPost("kv/v2/keys/stock/" + alias, body != null ? body : "{}");
+        if (genResp.getStatus() >= 300) {
+            return Response.status(genResp.getStatus()).entity(genResp.readEntity(String.class)).type(MediaType.APPLICATION_JSON).build();
+        }
+
+        // Parse the generated key data from Provision response
+        ObjectNode genBody = Json.parseObject(genResp.readEntity(String.class));
+        if (genBody == null || !genBody.has("privateKeyBase64")) {
+            return Response.status(500).entity("{\"error\":\"Provision did not return key data\"}").type(MediaType.APPLICATION_JSON).build();
+        }
+
+        return replaceKeyOnAllShards(alias, genBody, httpHeaders);
+    }
+
+    /**
+     * Replace a key on all AM shards via replaceKey action.
+     */
+    private Response replaceKeyOnAllShards(String alias, ObjectNode keyData, HttpHeaders httpHeaders) {
+        MultivaluedMap<String, String> incomingHeaders = httpHeaders.getRequestHeaders();
+        ArrayNode results = Json.MAPPER.createArrayNode();
+
+        ObjectNode replaceBody = Json.MAPPER.createObjectNode();
+        replaceBody.put("alias", alias);
+        replaceBody.put("privateKeyBase64", keyData.get("privateKeyBase64").asText());
+        replaceBody.put("certificateBase64", keyData.get("certificateBase64").asText());
+
+        MultivaluedMap<String, String> query = new MultivaluedHashMap<>();
+        query.putSingle("_action", "replaceKey");
+
+        for (String shardHost : Constants.amShardHosts()) {
+            MultivaluedMap<String, String> headers = AMShardUtils.shardHeaders(shardHost, incomingHeaders);
+            Response r = amService.doPost(AMPaths.KEYSTORE, headers, query, replaceBody.toString());
+
+            ObjectNode shardResult = Json.MAPPER.createObjectNode();
+            shardResult.put("shard", shardHost);
+            shardResult.put("status", r.getStatus());
+            shardResult.put("body", r.readEntity(String.class));
+            results.add(shardResult);
+        }
+
+        ObjectNode result = Json.MAPPER.createObjectNode();
+        result.put("alias", alias);
+        result.set("shards", results);
         return Response.ok(result.toString()).type(MediaType.APPLICATION_JSON).build();
     }
 
