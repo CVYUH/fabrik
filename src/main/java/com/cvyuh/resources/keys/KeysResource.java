@@ -127,6 +127,7 @@ public class KeysResource implements ResponseHandler {
         Response realmsResp = amService.doGet(AMPaths.REALMS, headers, realmQuery);
 
         java.util.List<String> tenants = new java.util.ArrayList<>();
+        tenants.add("root"); // root realm always included
         if (realmsResp.getStatus() == 200) {
             ObjectNode realmsBody = Json.parseObject(realmsResp.readEntity(String.class));
             ArrayNode realmsResult = (ArrayNode) realmsBody.get("result");
