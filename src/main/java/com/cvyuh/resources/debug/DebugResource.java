@@ -28,7 +28,7 @@ public class DebugResource implements ResponseHandler {
     @Inject @RestClient AMService amService;
 
     private void preProcess() {
-        MDC.put(LoggingContext.SERVICE, "com.cvyuh.DebugResource");
+        MDC.put(LoggingContext.SERVICE, DebugResource.class.getName());
     }
 
     @POST

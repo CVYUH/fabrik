@@ -12,8 +12,6 @@ import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.logging.Logger;
 import org.jboss.logging.MDC;
 
-import java.util.function.Function;
-
 @Path(Constants.V0.AM)
 public class AMResource implements ResponseHandler {
 
@@ -23,16 +21,21 @@ public class AMResource implements ResponseHandler {
     @RestClient
     AMService amService;
 
-    private String preProcess(UriInfo uriInfo) {
-        MDC.put(LoggingContext.SERVICE, "com.cvyuh.AMResource");
+    private void preProcess() {
+        MDC.put(LoggingContext.SERVICE, AMResource.class.getName());
+    }
+
+    private String toBackendPath(UriInfo uriInfo) {
         String subPath = uriInfo.getPath().substring(Constants.V0.AM.length());
         return "json" + subPath;
     }
 
     @GET
     @Path("{path:.*}")
+    @Produces(MediaType.APPLICATION_JSON)
     public Response doGet(@Context UriInfo uriInfo, @Context HttpHeaders httpHeaders) {
-        String path = preProcess(uriInfo);
+        preProcess();
+        String path = toBackendPath(uriInfo);
         return handleResponse(
                 v -> amService.doGet(path, httpHeaders.getRequestHeaders(), uriInfo.getQueryParameters()),
                 path, HttpMethod.GET, uriInfo.getQueryParameters()
@@ -43,7 +46,8 @@ public class AMResource implements ResponseHandler {
     @Path("{path:.*}")
     @Produces(MediaType.APPLICATION_JSON)
     public Response doPost(@Context UriInfo uriInfo, @Context HttpHeaders httpHeaders, String jsonBody) {
-        String path = preProcess(uriInfo);
+        preProcess();
+        String path = toBackendPath(uriInfo);
         return handleResponse(
                 v -> amService.doPost(path, httpHeaders.getRequestHeaders(), uriInfo.getQueryParameters(), jsonBody),
                 path, HttpMethod.POST, uriInfo.getQueryParameters()
@@ -54,7 +58,8 @@ public class AMResource implements ResponseHandler {
     @Path("{path:.*}")
     @Produces(MediaType.APPLICATION_JSON)
     public Response doPut(@Context UriInfo uriInfo, @Context HttpHeaders httpHeaders, String jsonBody) {
-        String path = preProcess(uriInfo);
+        preProcess();
+        String path = toBackendPath(uriInfo);
         return handleResponse(
                 v -> amService.doPut(path, httpHeaders.getRequestHeaders(), jsonBody),
                 path, HttpMethod.PUT, null
@@ -65,7 +70,8 @@ public class AMResource implements ResponseHandler {
     @Path("{path:.*}")
     @Produces(MediaType.APPLICATION_JSON)
     public Response doPatch(@Context UriInfo uriInfo, @Context HttpHeaders httpHeaders, String jsonBody) {
-        String path = preProcess(uriInfo);
+        preProcess();
+        String path = toBackendPath(uriInfo);
         return handleResponse(
                 v -> amService.doPatch(path, httpHeaders.getRequestHeaders(), jsonBody),
                 path, HttpMethod.PATCH, null
@@ -74,8 +80,10 @@ public class AMResource implements ResponseHandler {
 
     @DELETE
     @Path("{path:.*}")
+    @Produces(MediaType.APPLICATION_JSON)
     public Response doDelete(@Context UriInfo uriInfo, @Context HttpHeaders httpHeaders) {
-        String path = preProcess(uriInfo);
+        preProcess();
+        String path = toBackendPath(uriInfo);
         return handleResponse(
                 v -> amService.doDelete(path, httpHeaders.getRequestHeaders()),
                 path, HttpMethod.DELETE, null

@@ -4,6 +4,7 @@ import com.cvyuh.resources.Constants;
 import com.cvyuh.service.am.AMPaths;
 import com.cvyuh.service.am.AMService;
 import com.cvyuh.service.am.AMShardUtils;
+import com.cvyuh.service.provision.ProvisionPaths;
 import com.cvyuh.service.provision.ProvisionService;
 import com.cvyuh.utils.log.LoggingContext;
 import com.cvyuh.utils.misc.Json;
@@ -39,7 +40,7 @@ public class KeysResource implements ResponseHandler {
     @Inject @RestClient ProvisionService provisionService;
 
     private void preProcess() {
-        MDC.put(LoggingContext.SERVICE, "com.cvyuh.KeysResource");
+        MDC.put(LoggingContext.SERVICE, KeysResource.class.getName());
     }
 
     // ======================== Endpoints ========================
@@ -65,7 +66,7 @@ public class KeysResource implements ResponseHandler {
     public Response generate(@PathParam("tenant") String tenant, @PathParam("purpose") String purpose, String body) {
         preProcess();
         return handleResponse(
-                v -> provisionService.doPost("kv/v2/keys/" + tenant + "/" + purpose, body),
+                v -> provisionService.doPost(ProvisionPaths.tenantKey(tenant, purpose), body),
                 "keys/" + tenant + "/" + purpose, HttpMethod.POST, null);
     }
 
@@ -75,7 +76,7 @@ public class KeysResource implements ResponseHandler {
     public Response delete(@PathParam("tenant") String tenant, @PathParam("purpose") String purpose) {
         preProcess();
         return handleResponse(
-                v -> provisionService.doDelete("kv/v2/keys/" + tenant + "/" + purpose),
+                v -> provisionService.doDelete(ProvisionPaths.tenantKey(tenant, purpose)),
                 "keys/" + tenant + "/" + purpose, HttpMethod.DELETE, null);
     }
 
@@ -208,7 +209,7 @@ public class KeysResource implements ResponseHandler {
      */
     private Response doImportToAM(String tenant, String purpose, HttpHeaders httpHeaders) {
         // Read key from Provision (which reads from Vault)
-        Response vaultResp = provisionService.doGet("kv/v2/keys/" + tenant + "/" + purpose);
+        Response vaultResp = provisionService.doGet(ProvisionPaths.tenantKey(tenant, purpose));
         if (vaultResp.getStatus() != 200) {
             return Response.status(vaultResp.getStatus()).entity("{\"error\":\"Key not found in Vault\"}").type(MediaType.APPLICATION_JSON).build();
         }
@@ -228,7 +229,7 @@ public class KeysResource implements ResponseHandler {
      */
     private Response doRenewRealmKey(String tenant, String purpose, String body, HttpHeaders httpHeaders) {
         // Generate + store in Vault via Provision
-        Response genResp = provisionService.doPost("kv/v2/keys/" + tenant + "/" + purpose, body != null ? body : "{}");
+        Response genResp = provisionService.doPost(ProvisionPaths.tenantKey(tenant, purpose), body != null ? body : "{}");
         if (genResp.getStatus() >= 300) {
             return Response.status(genResp.getStatus()).entity(genResp.readEntity(String.class)).type(MediaType.APPLICATION_JSON).build();
         }
@@ -242,7 +243,7 @@ public class KeysResource implements ResponseHandler {
      */
     private Response doRenewStockKey(String alias, String body, HttpHeaders httpHeaders) {
         // Generate a key via Provision's stock key endpoint (no Vault storage)
-        Response genResp = provisionService.doPost("kv/v2/keys/stock/" + alias, body != null ? body : "{}");
+        Response genResp = provisionService.doPost(ProvisionPaths.stockKey(alias), body != null ? body : "{}");
         if (genResp.getStatus() >= 300) {
             return Response.status(genResp.getStatus()).entity(genResp.readEntity(String.class)).type(MediaType.APPLICATION_JSON).build();
         }
@@ -375,54 +376,41 @@ public class KeysResource implements ResponseHandler {
     }
 
     private ArrayNode fetchAllAMKeys(String shardHost, MultivaluedMap<String, String> incomingHeaders) {
-        try {
-            MultivaluedMap<String, String> headers = shardHeaders(shardHost, incomingHeaders);
-            MultivaluedMap<String, String> query = new MultivaluedHashMap<>();
-            query.putSingle("_queryFilter", "true");
+        MultivaluedMap<String, String> headers = shardHeaders(shardHost, incomingHeaders);
+        MultivaluedMap<String, String> query = new MultivaluedHashMap<>();
+        query.putSingle("_queryFilter", "true");
 
-            Response r = amService.doGet(AMPaths.KEYSTORE, headers, query);
-            if (r.getStatus() == 200) {
-                ObjectNode body = Json.parseObject(r.readEntity(String.class));
-                ArrayNode result = (ArrayNode) body.get("result");
-                return result != null ? result : Json.MAPPER.createArrayNode();
-            }
-        } catch (Exception e) {
-            LOG.errorf("Failed to fetch AM keys from %s: %s", shardHost, e.getMessage());
+        Response r = amService.doGet(AMPaths.KEYSTORE, headers, query);
+        if (r.getStatus() == 200) {
+            ObjectNode body = Json.parseObject(r.readEntity(String.class));
+            ArrayNode result = (ArrayNode) body.get("result");
+            return result != null ? result : Json.MAPPER.createArrayNode();
         }
         return Json.MAPPER.createArrayNode();
     }
 
     private java.util.Set<String> fetchVaultAliases(String tenant) {
         java.util.Set<String> purposes = new java.util.LinkedHashSet<>();
-        try {
-            Response r = provisionService.doGet("kv/v2/keys/" + tenant);
-            if (r.getStatus() == 200) {
-                ObjectNode body = Json.parseObject(r.readEntity(String.class));
-                if (body != null && body.has("data")) {
-                    var data = body.get("data");
-                    var keys = data.has("keys") ? data.get("keys") : null;
-                    if (keys != null && keys.isArray()) {
-                        for (var k : keys) purposes.add(k.asText().replace("/", ""));
-                    }
+        Response r = provisionService.doGet(ProvisionPaths.tenantKeys(tenant));
+        if (r.getStatus() == 200) {
+            ObjectNode body = Json.parseObject(r.readEntity(String.class));
+            if (body != null && body.has("data")) {
+                var data = body.get("data");
+                var keys = data.has("keys") ? data.get("keys") : null;
+                if (keys != null && keys.isArray()) {
+                    for (var k : keys) purposes.add(k.asText().replace("/", ""));
                 }
             }
-        } catch (Exception e) {
-            LOG.warnf("Vault key list failed for tenant=%s: %s", tenant, e.getMessage());
         }
         return purposes;
     }
 
     private ObjectNode fetchVaultKeys(String tenant) {
         ObjectNode section = Json.MAPPER.createObjectNode();
-        try {
-            Response r = provisionService.doGet("kv/v2/keys/" + tenant);
-            section.put("status", r.getStatus());
-            if (r.getStatus() == 200) {
-                section.set("keys", Json.parseObject(r.readEntity(String.class)));
-            }
-        } catch (Exception e) {
-            section.put("status", 500);
-            section.put("error", e.getMessage());
+        Response r = provisionService.doGet(ProvisionPaths.tenantKeys(tenant));
+        section.put("status", r.getStatus());
+        if (r.getStatus() == 200) {
+            section.set("keys", Json.parseObject(r.readEntity(String.class)));
         }
         return section;
     }
@@ -430,28 +418,23 @@ public class KeysResource implements ResponseHandler {
     private ObjectNode fetchAMKeys(String tenant, String shardHost, MultivaluedMap<String, String> incomingHeaders) {
         ObjectNode shardResult = Json.MAPPER.createObjectNode();
         shardResult.put("shard", shardHost);
-        try {
-            MultivaluedMap<String, String> headers = shardHeaders(shardHost, incomingHeaders);
-            MultivaluedMap<String, String> query = new MultivaluedHashMap<>();
-            query.putSingle("_queryFilter", "true");
+        MultivaluedMap<String, String> headers = shardHeaders(shardHost, incomingHeaders);
+        MultivaluedMap<String, String> query = new MultivaluedHashMap<>();
+        query.putSingle("_queryFilter", "true");
 
-            Response r = amService.doGet(AMPaths.KEYSTORE, headers, query);
-            shardResult.put("status", r.getStatus());
-            if (r.getStatus() == 200) {
-                ObjectNode body = Json.parseObject(r.readEntity(String.class));
-                ArrayNode allKeys = (ArrayNode) body.get("result");
-                ArrayNode tenantKeys = Json.MAPPER.createArrayNode();
-                if (allKeys != null) {
-                    for (var key : allKeys) {
-                        String alias = key.has("alias") ? key.get("alias").asText() : "";
-                        if (alias.startsWith(tenant + "-")) tenantKeys.add(key);
-                    }
+        Response r = amService.doGet(AMPaths.KEYSTORE, headers, query);
+        shardResult.put("status", r.getStatus());
+        if (r.getStatus() == 200) {
+            ObjectNode body = Json.parseObject(r.readEntity(String.class));
+            ArrayNode allKeys = (ArrayNode) body.get("result");
+            ArrayNode tenantKeys = Json.MAPPER.createArrayNode();
+            if (allKeys != null) {
+                for (var key : allKeys) {
+                    String alias = key.has("alias") ? key.get("alias").asText() : "";
+                    if (alias.startsWith(tenant + "-")) tenantKeys.add(key);
                 }
-                shardResult.set("keys", tenantKeys);
             }
-        } catch (Exception e) {
-            shardResult.put("status", 500);
-            shardResult.put("error", e.getMessage());
+            shardResult.set("keys", tenantKeys);
         }
         return shardResult;
     }
