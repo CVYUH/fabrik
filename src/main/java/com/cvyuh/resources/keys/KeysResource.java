@@ -30,6 +30,10 @@ import java.util.List;
  * POST /api/v0/keys/{tenant}/{purpose}    — generate key (Vault)
  * DELETE /api/v0/keys/{tenant}/{purpose}  — delete key (Vault)
  * POST /api/v0/keys/{tenant}/{purpose}/import — push from Vault to AM shards
+ * TODO: As more aggregation resources come in, we'll want a helper
+ *  — something like a safeCall that wraps a service call and returns an Optional<Response> or a default,
+ *  keeping the try/catch out of business logic. Extract it when the second aggregation resource shows up and the shape is clear.
+ *
  */
 @Path(Constants.V0.KEYS)
 public class KeysResource implements ResponseHandler {
@@ -377,41 +381,54 @@ public class KeysResource implements ResponseHandler {
     }
 
     private ArrayNode fetchAllAMKeys(String shardHost, MultivaluedMap<String, String> incomingHeaders) {
-        MultivaluedMap<String, String> headers = shardHeaders(shardHost, incomingHeaders);
-        MultivaluedMap<String, String> query = new MultivaluedHashMap<>();
-        query.putSingle("_queryFilter", "true");
+        try {
+            MultivaluedMap<String, String> headers = shardHeaders(shardHost, incomingHeaders);
+            MultivaluedMap<String, String> query = new MultivaluedHashMap<>();
+            query.putSingle("_queryFilter", "true");
 
-        Response r = amService.doGet(AMPaths.KEYSTORE, headers, query);
-        if (r.getStatus() == 200) {
-            ObjectNode body = Json.parseObject(r.readEntity(String.class));
-            ArrayNode result = (ArrayNode) body.get("result");
-            return result != null ? result : Json.MAPPER.createArrayNode();
+            Response r = amService.doGet(AMPaths.KEYSTORE, headers, query);
+            if (r.getStatus() == 200) {
+                ObjectNode body = Json.parseObject(r.readEntity(String.class));
+                ArrayNode result = (ArrayNode) body.get("result");
+                return result != null ? result : Json.MAPPER.createArrayNode();
+            }
+        } catch (Exception e) {
+            LOG.debugf("fetchAllAMKeys: failed for shard=%s (%s)", shardHost, e.getMessage());
         }
         return Json.MAPPER.createArrayNode();
     }
 
     private java.util.Set<String> fetchVaultAliases(String tenant) {
         java.util.Set<String> purposes = new java.util.LinkedHashSet<>();
-        Response r = provisionService.doGet(ProvisionPaths.tenantKeys(tenant));
-        if (r.getStatus() == 200) {
-            ObjectNode body = Json.parseObject(r.readEntity(String.class));
-            if (body != null && body.has("data")) {
-                var data = body.get("data");
-                var keys = data.has("keys") ? data.get("keys") : null;
-                if (keys != null && keys.isArray()) {
-                    for (var k : keys) purposes.add(k.asText().replace("/", ""));
+        try {
+            Response r = provisionService.doGet(ProvisionPaths.tenantKeys(tenant));
+            if (r.getStatus() == 200) {
+                ObjectNode body = Json.parseObject(r.readEntity(String.class));
+                if (body != null && body.has("data")) {
+                    var data = body.get("data");
+                    var keys = data.has("keys") ? data.get("keys") : null;
+                    if (keys != null && keys.isArray()) {
+                        for (var k : keys) purposes.add(k.asText().replace("/", ""));
+                    }
                 }
             }
+        } catch (Exception e) {
+            LOG.debugf("fetchVaultAliases: no Vault keys for tenant=%s (%s)", tenant, e.getMessage());
         }
         return purposes;
     }
 
     private ObjectNode fetchVaultKeys(String tenant) {
         ObjectNode section = Json.MAPPER.createObjectNode();
-        Response r = provisionService.doGet(ProvisionPaths.tenantKeys(tenant));
-        section.put("status", r.getStatus());
-        if (r.getStatus() == 200) {
-            section.set("keys", Json.parseObject(r.readEntity(String.class)));
+        try {
+            Response r = provisionService.doGet(ProvisionPaths.tenantKeys(tenant));
+            section.put("status", r.getStatus());
+            if (r.getStatus() == 200) {
+                section.set("keys", Json.parseObject(r.readEntity(String.class)));
+            }
+        } catch (Exception e) {
+            section.put("status", 404);
+            LOG.debugf("fetchVaultKeys: no Vault keys for tenant=%s (%s)", tenant, e.getMessage());
         }
         return section;
     }
@@ -419,23 +436,28 @@ public class KeysResource implements ResponseHandler {
     private ObjectNode fetchAMKeys(String tenant, String shardHost, MultivaluedMap<String, String> incomingHeaders) {
         ObjectNode shardResult = Json.MAPPER.createObjectNode();
         shardResult.put("shard", shardHost);
-        MultivaluedMap<String, String> headers = shardHeaders(shardHost, incomingHeaders);
-        MultivaluedMap<String, String> query = new MultivaluedHashMap<>();
-        query.putSingle("_queryFilter", "true");
+        try {
+            MultivaluedMap<String, String> headers = shardHeaders(shardHost, incomingHeaders);
+            MultivaluedMap<String, String> query = new MultivaluedHashMap<>();
+            query.putSingle("_queryFilter", "true");
 
-        Response r = amService.doGet(AMPaths.KEYSTORE, headers, query);
-        shardResult.put("status", r.getStatus());
-        if (r.getStatus() == 200) {
-            ObjectNode body = Json.parseObject(r.readEntity(String.class));
-            ArrayNode allKeys = (ArrayNode) body.get("result");
-            ArrayNode tenantKeys = Json.MAPPER.createArrayNode();
-            if (allKeys != null) {
-                for (var key : allKeys) {
-                    String alias = key.has("alias") ? key.get("alias").asText() : "";
-                    if (alias.startsWith(tenant + "-")) tenantKeys.add(key);
+            Response r = amService.doGet(AMPaths.KEYSTORE, headers, query);
+            shardResult.put("status", r.getStatus());
+            if (r.getStatus() == 200) {
+                ObjectNode body = Json.parseObject(r.readEntity(String.class));
+                ArrayNode allKeys = (ArrayNode) body.get("result");
+                ArrayNode tenantKeys = Json.MAPPER.createArrayNode();
+                if (allKeys != null) {
+                    for (var key : allKeys) {
+                        String alias = key.has("alias") ? key.get("alias").asText() : "";
+                        if (alias.startsWith(tenant + "-")) tenantKeys.add(key);
+                    }
                 }
+                shardResult.set("keys", tenantKeys);
             }
-            shardResult.set("keys", tenantKeys);
+        } catch (Exception e) {
+            shardResult.put("status", 500);
+            LOG.debugf("fetchAMKeys: failed for tenant=%s shard=%s (%s)", tenant, shardHost, e.getMessage());
         }
         return shardResult;
     }
