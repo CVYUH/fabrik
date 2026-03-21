@@ -24,7 +24,7 @@ import java.util.List;
 /**
  * Aggregated key view — collects keys from Vault (via Provision) and each AM shard,
  * merges into a unified comparison response.
- *
+
  * GET  /api/v0/keys                       — consolidated view (all tenants, all shards)
  * GET  /api/v0/keys/{tenant}              — single tenant comparison
  * POST /api/v0/keys/{tenant}/{purpose}    — generate key (Vault)

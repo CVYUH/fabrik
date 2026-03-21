@@ -17,9 +17,7 @@ import java.util.List;
 
 /**
  * Shard-aware debug endpoint.
- *
  * POST /api/v0/debug/{shard}?_action=status|elevate|restore
- *
  * Shard: "am-0", "am-1", etc. Routes to specific AM instance via amlbcookie.
  */
 @Path(Constants.V0.DEBUG)
